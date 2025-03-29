@@ -14,7 +14,9 @@ import org.gradle.kotlin.dsl.provideDelegate
 import org.gradle.kotlin.dsl.the
 import org.gradle.kotlin.dsl.withType
 import org.jetbrains.kotlin.compose.compiler.gradle.ComposeCompilerGradlePluginExtension
+import org.jetbrains.kotlin.compose.compiler.gradle.ComposeFeatureFlag
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+import java.io.File
 
 val Project.androidx get() = the<LibrariesForAndroidx>()
 val Project.compose get() = the<LibrariesForCompose>()
@@ -24,6 +26,7 @@ val Project.libs get() = the<LibrariesForLibs>()
 internal fun Project.configureAndroid(commonExtension: CommonExtension<*, *, *, *, *, *>) {
     commonExtension.apply {
         compileSdk = AndroidConfig.COMPILE_SDK
+        buildToolsVersion = AndroidConfig.BUILD_TOOLS
 
         defaultConfig {
             minSdk = AndroidConfig.MIN_SDK
@@ -43,8 +46,8 @@ internal fun Project.configureAndroid(commonExtension: CommonExtension<*, *, *, 
         compilerOptions {
             jvmTarget.set(AndroidConfig.JvmTarget)
             freeCompilerArgs.addAll(
-                "-opt-in=kotlin.RequiresOptIn",
                 "-Xcontext-receivers",
+                "-opt-in=kotlin.RequiresOptIn",
             )
 
             // Treat all Kotlin warnings as errors (disabled by default)
@@ -74,25 +77,20 @@ internal fun Project.configureCompose(commonExtension: CommonExtension<*, *, *, 
     }
 
     extensions.configure<ComposeCompilerGradlePluginExtension> {
-        // Enable strong skipping mode
-        enableStrongSkippingMode.set(true)
-
-        // Enable experimental compiler opts
-        // https://developer.android.com/jetpack/androidx/releases/compose-compiler#1.5.9
-        enableNonSkippingGroupOptimization.set(true)
+        featureFlags.set(setOf(ComposeFeatureFlag.OptimizeNonSkippingGroups))
 
         val enableMetrics = project.providers.gradleProperty("enableComposeCompilerMetrics").orNull.toBoolean()
         val enableReports = project.providers.gradleProperty("enableComposeCompilerReports").orNull.toBoolean()
 
-        val rootProjectDir = rootProject.layout.buildDirectory.asFile.get()
+        val rootBuildDir = rootProject.layout.buildDirectory.asFile.get()
         val relativePath = projectDir.relativeTo(rootDir)
+
         if (enableMetrics) {
-            val buildDirPath = rootProjectDir.resolve("compose-metrics").resolve(relativePath)
-            metricsDestination.set(buildDirPath)
+            rootBuildDir.resolve("compose-metrics").resolve(relativePath).let(metricsDestination::set)
         }
+
         if (enableReports) {
-            val buildDirPath = rootProjectDir.resolve("compose-reports").resolve(relativePath)
-            reportsDestination.set(buildDirPath)
+            rootBuildDir.resolve("compose-reports").resolve(relativePath).let(reportsDestination::set)
         }
     }
 
@@ -106,3 +104,5 @@ internal fun Project.configureTest() {
         }
     }
 }
+
+val Project.generatedBuildDir: File get() = project.layout.buildDirectory.asFile.get().resolve("generated/mihon")

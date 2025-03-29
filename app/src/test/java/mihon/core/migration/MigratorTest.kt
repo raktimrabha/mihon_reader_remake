@@ -29,7 +29,7 @@ class MigratorTest {
     fun initilize() {
         migrationContext = MigrationContext(false)
         migrationJobFactory = spyk(MigrationJobFactory(migrationContext, CoroutineScope(Dispatchers.Main + Job())))
-        migrationCompletedListener = spyk<() -> Unit>({})
+        migrationCompletedListener = spyk<MigrationCompletedListener>(block = {})
         migrationStrategyFactory = spyk(MigrationStrategyFactory(migrationJobFactory, migrationCompletedListener))
     }
 
@@ -127,8 +127,8 @@ class MigratorTest {
             listOf(
                 Migration.of(Migration.ALWAYS) { true },
                 Migration.of(2f) { true },
-                Migration.of(3f) { false }
-            )
+                Migration.of(3f) { false },
+            ),
         )
 
         execute.await()
